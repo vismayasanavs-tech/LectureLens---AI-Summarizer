@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>LectureLens — AI Summarizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:        #0a0a0f;
+  --surface:   #111118;
+  --border:    #1e1e2e;
+  --accent:    #e8ff47;
+  --accent2:   #47ffe8;
+  --text:      #e8e8f0;
+  --muted:     #6b6b80;
+  --danger:    #ff4747;
+  --radius:    12px;
+  --font-head: 'Syne', sans-serif;
+  --font-mono: 'DM Mono', monospace;
+}
+
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-head);
+  min-height:100vh;
+  overflow-x:hidden;
+}
+
+/* ── GRID BACKGROUND ── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:
+    linear-gradient(rgba(232,255,71,.03) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(232,255,71,.03) 1px,transparent 1px);
+  background-size:48px 48px;
+  pointer-events:none;z-index:0;
+}
+
+/* ── HEADER ── */
+header{
+  position:relative;z-index:10;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:28px 48px;
+  border-bottom:1px solid var(--border);
+}
+.logo{
+  display:flex;align-items:center;gap:12px;
+  font-size:1.35rem;font-weight:800;letter-spacing:-.5px;
+}
+.logo-dot{
+  width:10px;height:10px;
+  background:var(--accent);
+  border-radius:50%;
+  box-shadow:0 0 14px var(--accent);
+  animation:pulse 2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(.8)}}
+.badge{
+  font-family:var(--font-mono);font-size:.65rem;
+  background:rgba(232,255,71,.1);color:var(--accent);
+  border:1px solid rgba(232,255,71,.2);
+  padding:4px 10px;border-radius:20px;letter-spacing:.05em;
+}
+
+/* ── HERO ── */
+.hero{
+  position:relative;z-index:10;
+  text-align:center;
+  padding:72px 24px 48px;
+}
+.hero h1{
+  font-size:clamp(2.5rem,6vw,5rem);
+  font-weight:800;line-height:1.05;letter-spacing:-2px;
+  margin-bottom:20px;
+}
+.hero h1 span{color:var(--accent)}
+.hero p{
+  font-family:var(--font-mono);font-size:.95rem;
+  color:var(--muted);max-width:540px;margin:0 auto 40px;
+  line-height:1.7;font-weight:300;
+}
+
+/* ── WAVEFORM DECORATION ── */
+.waveform{
+  display:flex;align-items:center;justify-content:center;
+  gap:3px;height:40px;margin-bottom:48px;
+}
+.waveform span{
+  display:block;width:3px;
+  background:var(--accent);border-radius:2px;
+  opacity:.4;
+  animation:wave 1.4s ease-in-out infinite;
+}
+.waveform span:nth-child(2){animation-delay:.1s}
+.waveform span:nth-child(3){animation-delay:.2s}
+.waveform span:nth-child(4){animation-delay:.3s}
+.waveform span:nth-child(5){animation-delay:.4s}
+.waveform span:nth-child(6){animation-delay:.5s}
+.waveform span:nth-child(7){animation-delay:.4s}
+.waveform span:nth-child(8){animation-delay:.3s}
+.waveform span:nth-child(9){animation-delay:.2s}
+.waveform span:nth-child(10){animation-delay:.1s}
+@keyframes wave{
+  0%,100%{height:6px;opacity:.3}
+  50%{height:32px;opacity:.9}
+}
+
+/* ── MAIN CARD ── */
+.main{
+  position:relative;z-index:10;
+  max-width:820px;margin:0 auto;
+  padding:0 24px 80px;
+}
+
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:20px;
+  overflow:hidden;
+}
+
+/* ── TAB SWITCHER ── */
+.tabs{
+  display:flex;
+  border-bottom:1px solid var(--border);
+}
+.tab{
+  flex:1;padding:18px 24px;
+  font-family:var(--font-head);font-size:.85rem;font-weight:700;
+  letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);cursor:pointer;
+  border:none;background:none;
+  transition:color .2s,background .2s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.tab.active{
+  color:var(--accent);
+  background:rgba(232,255,71,.05);
+  border-bottom:2px solid var(--accent);
+}
+.tab:hover:not(.active){color:var(--text);background:rgba(255,255,255,.02)}
+.tab svg{width:16px;height:16px}
+
+/* ── PANELS ── */
+.panel{display:none;padding:32px}
+.panel.active{display:block}
+
+/* ── URL INPUT ── */
+.url-input-wrap{
+  position:relative;
+  display:flex;align-items:center;
+  background:#0d0d14;
+  border:1.5px solid var(--border);
+  border-radius:var(--radius);
+  overflow:hidden;
+  transition:border-color .2s;
+}
+.url-input-wrap:focus-within{border-color:var(--accent)}
+
+.url-platform-icon{
+  padding:0 16px;
+  display:flex;align-items:center;
+  color:var(--muted);font-size:1.1rem;
+  flex-shrink:0;
+}
+.url-input{
+  flex:1;padding:16px 0;
+  background:none;border:none;outline:none;
+  color:var(--text);font-family:var(--font-mono);font-size:.9rem;
+  font-weight:300;
+}
+.url-input::placeholder{color:var(--muted)}
+
+.url-hint{
+  display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;
+}
+.platform-chip{
+  font-family:var(--font-mono);font-size:.7rem;
+  padding:4px 10px;border-radius:20px;
+  border:1px solid var(--border);color:var(--muted);
+  cursor:pointer;transition:all .15s;
+}
+.platform-chip:hover{border-color:var(--accent);color:var(--accent)}
+.platform-chip.yt{border-color:rgba(255,71,71,.3);color:#ff6b6b}
+.platform-chip.sp{border-color:rgba(71,255,100,.3);color:#1db954}
+
+/* ── FILE DROP ── */
+.dropzone{
+  border:2px dashed var(--border);
+  border-radius:var(--radius);
+  padding:48px 24px;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+}
+.dropzone:hover,.dropzone.drag-over{
+  border-color:var(--accent);
+  background:rgba(232,255,71,.03);
+}
+.dropzone input[type=file]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;
+}
+.dropzone-icon{font-size:2.5rem;margin-bottom:12px}
+.dropzone h3{font-size:1rem;font-weight:700;margin-bottom:6px}
+.dropzone p{font-family:var(--font-mono);font-size:.75rem;color:var(--muted)}
+.file-selected{
+  margin-top:12px;padding:10px 14px;
+  background:rgba(232,255,71,.06);
+  border:1px solid rgba(232,255,71,.15);
+  border-radius:8px;
+  font-family:var(--font-mono);font-size:.8rem;color:var(--accent);
+  display:none;align-items:center;gap:8px;
+}
+.file-selected.show{display:flex}
+
+/* ── OPTIONS ROW ── */
+.options-row{
+  display:flex;gap:12px;margin:20px 0 24px;
+  flex-wrap:wrap;
+}
+.select-wrap{
+  flex:1;min-width:140px;
+  position:relative;
+}
+.select-wrap label{
+  display:block;font-family:var(--font-mono);font-size:.68rem;
+  color:var(--muted);text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:6px;
+}
+.select-wrap select{
+  width:100%;padding:10px 14px;
+  background:#0d0d14;border:1.5px solid var(--border);
+  border-radius:8px;color:var(--text);
+  font-family:var(--font-mono);font-size:.82rem;
+  outline:none;appearance:none;cursor:pointer;
+  transition:border-color .2s;
+}
+.select-wrap select:focus{border-color:var(--accent)}
+
+/* ── SUBMIT BTN ── */
+.btn-submit{
+  width:100%;padding:16px;
+  background:var(--accent);color:#0a0a0f;
+  font-family:var(--font-head);font-size:1rem;font-weight:800;
+  letter-spacing:.03em;
+  border:none;border-radius:var(--radius);cursor:pointer;
+  transition:transform .15s,opacity .15s,box-shadow .2s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.btn-submit:hover{transform:translateY(-1px);box-shadow:0 8px 32px rgba(232,255,71,.25)}
+.btn-submit:active{transform:translateY(0)}
+.btn-submit:disabled{opacity:.45;cursor:not-allowed;transform:none}
+
+/* ── PROGRESS ── */
+.progress-wrap{
+  display:none;margin-top:24px;
+}
+.progress-wrap.show{display:block}
+.progress-stages{
+  display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;
+}
+.stage{
+  font-family:var(--font-mono);font-size:.7rem;
+  padding:5px 12px;border-radius:20px;
+  border:1px solid var(--border);color:var(--muted);
+  display:flex;align-items:center;gap:5px;
+  transition:all .3s;
+}
+.stage.active{border-color:var(--accent);color:var(--accent);background:rgba(232,255,71,.06)}
+.stage.done{border-color:rgba(71,255,232,.3);color:var(--accent2)}
+.stage-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.stage.active .stage-dot{animation:pulse .8s infinite}
+
+.progress-bar-track{
+  height:3px;background:var(--border);border-radius:2px;overflow:hidden;
+}
+.progress-bar-fill{
+  height:100%;background:var(--accent);border-radius:2px;
+  width:0%;transition:width .5s ease;
+}
+.progress-msg{
+  margin-top:10px;font-family:var(--font-mono);font-size:.78rem;
+  color:var(--muted);
+}
+
+/* ── RESULTS ── */
+.results{
+  display:none;margin-top:32px;
+}
+.results.show{display:block}
+
+.results-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:20px;
+}
+.results-title{
+  font-size:1.1rem;font-weight:800;
+}
+.meta-chips{
+  display:flex;gap:8px;flex-wrap:wrap;
+}
+.meta-chip{
+  font-family:var(--font-mono);font-size:.68rem;
+  padding:4px 10px;border-radius:20px;
+  border:1px solid var(--border);color:var(--muted);
+}
+.meta-chip strong{color:var(--accent2)}
+
+.result-section{
+  background:#0d0d14;
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  margin-bottom:16px;
+  overflow:hidden;
+}
+.result-section-header{
+  padding:12px 18px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border);
+  font-family:var(--font-mono);font-size:.72rem;
+  text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+  cursor:pointer;user-select:none;
+}
+.result-section-header:hover{color:var(--text)}
+.toggle-icon{transition:transform .2s}
+.collapsed .toggle-icon{transform:rotate(-90deg)}
+.result-body{padding:20px 18px}
+.result-body.collapsed{display:none}
+
+.summary-text{
+  font-family:var(--font-mono);font-size:.88rem;
+  line-height:1.8;color:var(--text);font-weight:300;
+}
+
+.bullets-list{list-style:none;display:flex;flex-direction:column;gap:10px}
+.bullets-list li{
+  display:flex;align-items:flex-start;gap:12px;
+  font-family:var(--font-mono);font-size:.85rem;line-height:1.7;
+  font-weight:300;color:var(--text);
+}
+.bullet-dot{
+  flex-shrink:0;margin-top:7px;
+  width:6px;height:6px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 6px var(--accent);
+}
+
+.transcript-text{
+  font-family:var(--font-mono);font-size:.78rem;
+  line-height:1.9;color:var(--muted);font-weight:300;
+  max-height:200px;overflow-y:auto;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent;
+}
+
+.copy-btn{
+  font-family:var(--font-mono);font-size:.68rem;
+  padding:4px 10px;border-radius:6px;
+  border:1px solid var(--border);
+  background:none;color:var(--muted);cursor:pointer;
+  transition:all .15s;
+}
+.copy-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* ── ERROR ── */
+.error-box{
+  display:none;margin-top:20px;
+  padding:16px 18px;
+  background:rgba(255,71,71,.06);
+  border:1px solid rgba(255,71,71,.2);
+  border-radius:var(--radius);
+  font-family:var(--font-mono);font-size:.82rem;
+  color:#ff8080;line-height:1.6;
+}
+.error-box.show{display:block}
+
+/* ── FOOTER ── */
+footer{
+  position:relative;z-index:10;
+  text-align:center;padding:24px;
+  border-top:1px solid var(--border);
+  font-family:var(--font-mono);font-size:.7rem;color:var(--muted);
+}
+footer a{color:var(--muted);text-decoration:none}
+footer a:hover{color:var(--accent)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:600px){
+  header{padding:20px 20px}
+  .hero{padding:48px 16px 32px}
+  .panel{padding:20px}
+  .options-row{flex-direction:column}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    LectureLens
+  </div>
+  <span class="badge">ML · Whisper + BART · CPU</span>
+</header>
+
+<section class="hero">
+  <h1>Turn any lecture<br/>into <span>sharp notes</span></h1>
+  <p>Paste a YouTube or Spotify link — or drop a file.<br/>
+     Whisper transcribes, BART summarizes. All offline.</p>
+  <div class="waveform">
+    <span style="height:10px"></span><span style="height:18px"></span>
+    <span style="height:26px"></span><span style="height:14px"></span>
+    <span style="height:30px"></span><span style="height:20px"></span>
+    <span style="height:30px"></span><span style="height:14px"></span>
+    <span style="height:26px"></span><span style="height:10px"></span>
+  </div>
+</section>
+
+<main class="main">
+  <div class="card">
+
+    <!-- TAB SWITCHER -->
+    <div class="tabs">
+      <button class="tab active" onclick="switchTab('url',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/>
+        </svg>
+        URL / Link
+      </button>
+      <button class="tab" onclick="switchTab('file',this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        Upload File
+      </button>
+    </div>
+
+    <!-- URL PANEL -->
+    <div class="panel active" id="panel-url">
+      <div class="url-input-wrap">
+        <div class="url-platform-icon" id="platform-icon">🔗</div>
+        <input class="url-input" id="url-input" type="url"
+               placeholder="https://youtube.com/watch?v=…  or  open.spotify.com/…"
+               oninput="detectPlatform(this.value)"/>
+      </div>
+      <div class="url-hint">
+        <span class="platform-chip yt" onclick="setExample('yt')">▶ YouTube example</span>
+        <span class="platform-chip sp" onclick="setExample('sp')">♫ Spotify example</span>
+        <span class="platform-chip" onclick="setExample('direct')">⬇ Direct audio URL</span>
+      </div>
+
+      <div class="options-row">
+        <div class="select-wrap">
+          <label>ASR Model</label>
+          <select id="url-asr-model">
+            <option value="tiny">Tiny — fastest, ~150 MB</option>
+            <option value="base" selected>Base — balanced ✓</option>
+            <option value="small">Small — better quality</option>
+            <option value="medium">Medium — best, ~3 GB</option>
+          </select>
+        </div>
+        <div class="select-wrap">
+          <label>Output Format</label>
+          <select id="url-format">
+            <option value="both" selected>Bullets + Paragraph</option>
+            <option value="bullets">Bullet Points only</option>
+            <option value="paragraph">Paragraph only</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="btn-url" onclick="submitURL()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        Summarize from Link
+      </button>
+    </div>
+
+    <!-- FILE PANEL -->
+    <div class="panel" id="panel-file">
+      <div class="dropzone" id="dropzone"
+           ondragover="e=>{e.preventDefault();this.classList.add('drag-over')}"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleDrop(event)">
+        <input type="file" id="file-input" accept=".wav,.mp3,.flac,.ogg,.m4a,.mp4,.mkv,.avi,.mov,.webm"
+               onchange="fileChosen(this)"/>
+        <div class="dropzone-icon">🎙</div>
+        <h3>Drop audio or video here</h3>
+        <p>WAV · MP3 · FLAC · MP4 · MKV · MOV · and more</p>
+      </div>
+      <div class="file-selected" id="file-selected">
+        <span>📄</span><span id="file-name-display"></span>
+      </div>
+
+      <div class="options-row">
+        <div class="select-wrap">
+          <label>ASR Model</label>
+          <select id="file-asr-model">
+            <option value="tiny">Tiny — fastest</option>
+            <option value="base" selected>Base — balanced ✓</option>
+            <option value="small">Small — better</option>
+            <option value="medium">Medium — best</option>
+          </select>
+        </div>
+        <div class="select-wrap">
+          <label>Output Format</label>
+          <select id="file-format">
+            <option value="both" selected>Bullets + Paragraph</option>
+            <option value="bullets">Bullet Points only</option>
+            <option value="paragraph">Paragraph only</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn-submit" id="btn-file" onclick="submitFile()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <polyline points="16 16 12 12 8 16"/>
+          <line x1="12" y1="12" x2="12" y2="21"/>
+          <path d="M20.39 18.39A5 5 0 0018 9h-1.26A8 8 0 103 16.3"/>
+        </svg>
+        Summarize File
+      </button>
+    </div>
+
+    <!-- PROGRESS -->
+    <div class="progress-wrap" id="progress-wrap" style="padding:0 32px 28px">
+      <div class="progress-stages">
+        <div class="stage" id="st-download"><div class="stage-dot"></div>Download</div>
+        <div class="stage" id="st-preprocess"><div class="stage-dot"></div>Preprocess</div>
+        <div class="stage" id="st-asr"><div class="stage-dot"></div>Transcribe</div>
+        <div class="stage" id="st-summarize"><div class="stage-dot"></div>Summarize</div>
+        <div class="stage" id="st-format"><div class="stage-dot"></div>Format</div>
+      </div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progress-fill"></div>
+      </div>
+      <div class="progress-msg" id="progress-msg">Initialising pipeline…</div>
+    </div>
+
+    <!-- ERROR -->
+    <div class="error-box" id="error-box" style="margin:0 32px 28px"></div>
+
+  </div><!-- /card -->
+
+  <!-- RESULTS -->
+  <div class="results" id="results">
+    <div class="results-header">
+      <div class="results-title">Summary</div>
+      <div class="meta-chips" id="meta-chips"></div>
+    </div>
+
+    <!-- Bullet Points -->
+    <div class="result-section" id="sec-bullets">
+      <div class="result-section-header" onclick="toggleSection('sec-bullets')">
+        <span>Key Points</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="copy-btn" onclick="copySection('bullets',event)">Copy</button>
+          <span class="toggle-icon">▾</span>
+        </div>
+      </div>
+      <div class="result-body" id="body-bullets">
+        <ul class="bullets-list" id="bullets-list"></ul>
+      </div>
+    </div>
+
+    <!-- Summary Paragraph -->
+    <div class="result-section" id="sec-summary">
+      <div class="result-section-header" onclick="toggleSection('sec-summary')">
+        <span>Summary Paragraph</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="copy-btn" onclick="copySection('summary',event)">Copy</button>
+          <span class="toggle-icon">▾</span>
+        </div>
+      </div>
+      <div class="result-body" id="body-summary">
+        <p class="summary-text" id="summary-text"></p>
+      </div>
+    </div>
+
+    <!-- Transcript -->
+    <div class="result-section" id="sec-transcript">
+      <div class="result-section-header" onclick="toggleSection('sec-transcript')">
+        <span>Full Transcript</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="copy-btn" onclick="copySection('transcript',event)">Copy</button>
+          <span class="toggle-icon">▾</span>
+        </div>
+      </div>
+      <div class="result-body collapsed" id="body-transcript">
+        <p class="transcript-text" id="transcript-text"></p>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  LectureLens · Whisper ASR + BART Summarization · 100% local, no cloud APIs ·
+  <a href="https://github.com/openai/whisper" target="_blank">Whisper</a> ·
+  <a href="https://huggingface.co/facebook/bart-large-cnn" target="_blank">BART</a> ·
+  <a href="https://github.com/yt-dlp/yt-dlp" target="_blank">yt-dlp</a>
+</footer>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let activeTab  = 'url';
+let chosenFile = null;
+let lastData   = {};
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+function switchTab(tab, el) {
+  activeTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ── Platform detection ─────────────────────────────────────────────────────
+function detectPlatform(url) {
+  const icon = document.getElementById('platform-icon');
+  if (/youtube\.com|youtu\.be/i.test(url))       icon.textContent = '▶';
+  else if (/open\.spotify\.com/i.test(url))       icon.textContent = '♫';
+  else if (/^https?:\/\//i.test(url))             icon.textContent = '⬇';
+  else                                             icon.textContent = '🔗';
+}
+
+// ── Example URLs ──────────────────────────────────────────────────────────
+const EXAMPLES = {
+  yt:     'https://www.youtube.com/watch?v=aircAruvnKk',  // 3Blue1Brown: Neural Networks
+  sp:     'https://open.spotify.com/episode/3gBBNNi4S9YnhqPh3i1LvF',
+  direct: 'https://www2.cs.uic.edu/~i101/SoundFiles/BabyElephantWalk60.wav',
+};
+function setExample(type) {
+  document.getElementById('url-input').value = EXAMPLES[type];
+  detectPlatform(EXAMPLES[type]);
+}
+
+// ── File handling ─────────────────────────────────────────────────────────
+function fileChosen(input) {
+  chosenFile = input.files[0];
+  if (chosenFile) {
+    document.getElementById('file-name-display').textContent =
+      chosenFile.name + ' (' + (chosenFile.size / 1024 / 1024).toFixed(1) + ' MB)';
+    document.getElementById('file-selected').classList.add('show');
+  }
+}
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    chosenFile = file;
+    document.getElementById('file-name-display').textContent =
+      file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)';
+    document.getElementById('file-selected').classList.add('show');
+  }
+}
+
+// ── Progress animation ─────────────────────────────────────────────────────
+const STAGES = ['download','preprocess','asr','summarize','format'];
+const STAGE_MSGS = {
+  download:   ['Downloading from URL…','Fetching audio stream…','Resolving link…'],
+  preprocess: ['Denoising audio…','Normalising amplitude…','Chunking into segments…'],
+  asr:        ['Whisper is listening…','Transcribing speech…','Recognising words…'],
+  summarize:  ['BART is reading…','Generating summary…','Compressing lecture…'],
+  format:     ['Polishing output…','Building bullet points…','Almost done…'],
+};
+let _stageIdx = 0, _stageTimer = null, _msgTimer = null;
+
+function startProgress(hasDownload) {
+  document.getElementById('progress-wrap').classList.add('show');
+  document.getElementById('error-box').classList.remove('show');
+  document.getElementById('results').classList.remove('show');
+  STAGES.forEach(s => {
+    const el = document.getElementById('st-' + s);
+    el.classList.remove('active','done');
+  });
+  setProgressFill(0);
+  _stageIdx = hasDownload ? 0 : 1;
+  activateStage(_stageIdx);
+}
+
+function activateStage(idx) {
+  if (idx >= STAGES.length) return;
+  const s = STAGES[idx];
+  STAGES.forEach((st, i) => {
+    const el = document.getElementById('st-' + st);
+    el.classList.remove('active','done');
+    if (i < idx)  el.classList.add('done');
+    if (i === idx) el.classList.add('active');
+  });
+  const msgs = STAGE_MSGS[s];
+  let mi = 0;
+  document.getElementById('progress-msg').textContent = msgs[0];
+  clearInterval(_msgTimer);
+  _msgTimer = setInterval(() => {
+    mi = (mi + 1) % msgs.length;
+    document.getElementById('progress-msg').textContent = msgs[mi];
+  }, 2800);
+  setProgressFill((idx / STAGES.length) * 80);
+}
+
+function advanceStage() {
+  _stageIdx++;
+  if (_stageIdx < STAGES.length) activateStage(_stageIdx);
+}
+
+function finishProgress() {
+  clearInterval(_msgTimer);
+  STAGES.forEach(s => {
+    const el = document.getElementById('st-' + s);
+    el.classList.remove('active');
+    el.classList.add('done');
+  });
+  setProgressFill(100);
+  document.getElementById('progress-msg').textContent = '✓ Complete';
+  setTimeout(() => document.getElementById('progress-wrap').classList.remove('show'), 1200);
+}
+
+function setProgressFill(pct) {
+  document.getElementById('progress-fill').style.width = pct + '%';
+}
+
+// ── Submit URL ─────────────────────────────────────────────────────────────
+async function submitURL() {
+  const url = document.getElementById('url-input').value.trim();
+  if (!url) { showError('Please enter a URL.'); return; }
+
+  const fmt   = document.getElementById('url-format').value;
+  const btn   = document.getElementById('btn-url');
+  btn.disabled = true;
+  startProgress(true);
+
+  // Simulate stage advances while waiting (real server will fire all at once)
+  const stageTimer = setInterval(advanceStage, 9000);
+
+  try {
+    const res  = await fetch('/api/summarize_url', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({url, format: fmt}),
+    });
+    clearInterval(stageTimer);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+    finishProgress();
+    showResults(data);
+  } catch (err) {
+    clearInterval(stageTimer);
+    document.getElementById('progress-wrap').classList.remove('show');
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Submit File ────────────────────────────────────────────────────────────
+async function submitFile() {
+  if (!chosenFile) { showError('Please choose a file first.'); return; }
+
+  const fmt  = document.getElementById('file-format').value;
+  const btn  = document.getElementById('btn-file');
+  btn.disabled = true;
+  startProgress(false);
+
+  const stageTimer = setInterval(advanceStage, 9000);
+
+  try {
+    const form = new FormData();
+    form.append('file', chosenFile);
+    form.append('format', fmt);
+
+    const res  = await fetch('/api/summarize_file', {method:'POST', body: form});
+    clearInterval(stageTimer);
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'Server error');
+    finishProgress();
+    showResults(data);
+  } catch (err) {
+    clearInterval(stageTimer);
+    document.getElementById('progress-wrap').classList.remove('show');
+    showError(err.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Render Results ─────────────────────────────────────────────────────────
+function showResults(data) {
+  lastData = data;
+  const m = data.metadata || {};
+
+  // Meta chips
+  const chips = [];
+  if (m.title)              chips.push(['Source', m.title.slice(0,30) + (m.title.length>30?'…':'')]);
+  if (m.audio_duration_sec) chips.push(['Duration', fmtSec(m.audio_duration_sec)]);
+  if (m.word_count)         chips.push(['Words', m.word_count]);
+  if (m.compression_ratio)  chips.push(['Compressed', m.compression_ratio + 'x']);
+  if (m.total_time_sec)     chips.push(['Processed in', fmtSec(m.total_time_sec)]);
+
+  document.getElementById('meta-chips').innerHTML = chips.map(
+    ([k,v]) => `<div class="meta-chip">${k}: <strong>${v}</strong></div>`
+  ).join('');
+
+  // Bullet points
+  const ul = document.getElementById('bullets-list');
+  ul.innerHTML = (data.bullet_points || []).map(b =>
+    `<li><div class="bullet-dot"></div>${escHtml(b)}</li>`
+  ).join('');
+
+  // Summary
+  document.getElementById('summary-text').textContent = data.summary || '';
+
+  // Transcript
+  document.getElementById('transcript-text').textContent = data.transcript || '';
+
+  // Show/hide sections based on content
+  document.getElementById('sec-bullets').style.display =
+    (data.bullet_points && data.bullet_points.length) ? '' : 'none';
+  document.getElementById('sec-summary').style.display =
+    data.summary ? '' : 'none';
+
+  document.getElementById('results').classList.add('show');
+  document.getElementById('results').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.innerHTML = '⚠ ' + escHtml(msg);
+  box.classList.add('show');
+}
+
+function escHtml(t) {
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function fmtSec(s) {
+  const m = Math.floor(s/60), sec = Math.round(s%60);
+  return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+}
+
+function toggleSection(id) {
+  const sec  = document.getElementById(id);
+  const body = sec.querySelector('.result-body');
+  const head = sec.querySelector('.result-section-header');
+  body.classList.toggle('collapsed');
+  head.classList.toggle('collapsed');
+}
+
+function copySection(type, e) {
+  e.stopPropagation();
+  let text = '';
+  if (type === 'bullets') {
+    text = (lastData.bullet_points||[]).map(b => '• '+b).join('\n');
+  } else if (type === 'summary') {
+    text = lastData.summary || '';
+  } else if (type === 'transcript') {
+    text = lastData.transcript || '';
+  }
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = e.target;
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 1500);
+  });
+}
+</script>
+</body>
+</html>
